@@ -42,6 +42,8 @@
 
         var hidden_canvas;
         var hidden_context;
+        var hidden_player_canvas;
+        var hidden_player_context;
         var map_width;
         var map_height;
         var canvas;
@@ -53,6 +55,8 @@
         $(document).ready(function () {
             hidden_canvas = document.createElement('canvas');
             hidden_context = hidden_canvas.getContext('2d');
+            hidden_player_canvas = document.createElement('canvas');
+            hidden_player_context = hidden_player_canvas.getContext('2d');
 
             canvas = $("#canvas");
             context = canvas[0].getContext("2d");
@@ -61,6 +65,7 @@
             canvas[0].height = window.innerHeight;
 
             trackTransforms(context);
+            trackTransforms(hidden_player_context);
 
             var lastX = canvas[0].width / 2, lastY = canvas[0].height / 2;
             var dragStart, dragged;
@@ -115,6 +120,8 @@
 
             hidden_canvas.width = map_height;
             hidden_canvas.height = map_height;
+            hidden_player_canvas.width = map_height;
+            hidden_player_canvas.height = map_height;
 
             var relative_height = Math.sqrt(Math.pow(radius, 2) - Math.pow(radius / 2, 2));
             var pos_x = 0;
@@ -138,13 +145,20 @@
         function RedrawMap() {
             var p1 = context.transformedPoint(0, 0);
             var p2 = context.transformedPoint(canvas[0].width, canvas[0].height);
-
             context.clearRect(p1.x, p1.y, p2.x - p1.x, p2.y - p1.y);
+
             context.drawImage(hidden_canvas, offsetX, offsetY);
+            context.drawImage(hidden_player_canvas, offsetX, offsetY);
         }
-        function Polygon(ctx, x, y, radius, sides, color) {
+        function ClearMap() {
+            context.clearRect(0, 0, canvas[0].width, canvas[0].height);
+            hidden_context.clearRect(0, 0, canvas[0].width, canvas[0].height);
+        }
+
+        function Polygon(ctx, x, y, radius, sides, color, alpha = 1) {
             if (sides < 3) return;
             var a = ((Math.PI * 2) / sides);
+            ctx.globalAlpha = alpha;
             ctx.beginPath();
             ctx.setTransform(1, 0, 0, 1, 0, 0);
             ctx.translate(x, y);
@@ -225,21 +239,44 @@
             $('#logDiv').html($('#logDiv').html() + message + '<br/>');
             $('#logDiv')[0].scrollTop = $('#logDiv')[0].scrollHeight;
         }
-        function UpdateMap(turn, playerData, itemData) {
-            var list = $('#playerList');
-            list.html('');
+        function UpdateMap(players) {
+            var p1 = hidden_player_context.transformedPoint(0, 0);
+            var p2 = hidden_player_context.transformedPoint(hidden_player_canvas.width, hidden_player_canvas.height);
+            hidden_player_context.clearRect(p1.x, p1.y, p2.x - p1.x, p2.y - p1.y);
 
-            for (var p = 0; p < playerData.length; p++) {
-                var li = document.createElement('li');
-                if (playerData[p].Alive == false) {
-                    li.style.color = '#FFFF00';
+            hidden_player_context.font = "8px Verdana";
+
+            var relative_height = Math.sqrt(Math.pow(radius, 2) - Math.pow(radius / 2, 2));
+
+            for (var p = 0; p < players.length; p++) {
+                for (var t = 0; t < players[p].VisibleTiles.length; t++) {
+                    var vpos_x = radius + (players[p].VisibleTiles[t].Coordinate.X * radius) + (players[p].VisibleTiles[t].Coordinate.X * (radius / 2));
+                    var vpos_y = (players[p].VisibleTiles[t].Coordinate.Y * (2 * relative_height)) + relative_height + ((players[p].VisibleTiles[t].Coordinate.X % 2 == 0) ? 0 : relative_height);
+
+                    Polygon(hidden_player_context, vpos_x, vpos_y, radius, 6, '#FF33CC', 0.4);
                 }
 
-                li.innerText = playerData[p].Nickname + " (" + playerData[p].LastActionTime + "ms)";
-                list.append(li);
-            }
+                var pos_x = radius + (players[p].Location.X * radius) + (players[p].Location.X * (radius / 2));
+                var pos_y = (players[p].Location.Y * (2 * relative_height)) + relative_height + ((players[p].Location.X % 2 == 0) ? 0 : relative_height);
 
-            $('#lblTurn').text(turn);
+                Polygon(hidden_player_context, pos_x, pos_y, radius, 6, players[p].Colour);
+            }
+            RedrawMap();
+
+            //var list = $('#playerList');
+            //list.html('');
+
+            //for (var p = 0; p < players.length; p++) {
+            //    var li = document.createElement('li');
+            //    if (playerData[p].Alive == false) {
+            //        li.style.color = '#FFFF00';
+            //    }
+
+            //    li.innerText = playerData[p].Nickname + " (" + playerData[p].LastActionTime + "ms)";
+            //    list.append(li);
+            //}
+
+            //$('#lblTurn').text(turn);
         }
     </script>
 </head>

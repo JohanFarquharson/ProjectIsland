@@ -130,21 +130,11 @@
             0,
             0,
             0});
-            this.nudSeed.Minimum = new decimal(new int[] {
-            1,
-            0,
-            0,
-            0});
             this.nudSeed.Name = "nudSeed";
             this.nudSeed.Size = new System.Drawing.Size(156, 20);
             this.nudSeed.TabIndex = 4;
-            this.nudSeed.Value = new decimal(new int[] {
-            1,
-            0,
-            0,
-            0});
             // 
-            // frmServerSettings
+            // GameServerSettingsForm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
@@ -160,7 +150,7 @@
             this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedDialog;
             this.MaximizeBox = false;
             this.MinimizeBox = false;
-            this.Name = "frmServerSettings";
+            this.Name = "GameServerSettingsForm";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
             this.Text = "Settings";
             this.Load += new System.EventHandler(this.frmServerSettings_Load);

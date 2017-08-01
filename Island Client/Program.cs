@@ -1,55 +1,82 @@
-﻿using Microsoft.AspNet.SignalR.Client;
+﻿using GameLibrary;
+using GameLibrary.Actions;
+using Microsoft.AspNet.SignalR.Client;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
+using System.Runtime.InteropServices;
 
 namespace GameClient
 {
     class Program
     {
-        public static IHubProxy _hub;
-        public static Guid playerID;
+        private static IHubProxy _hub;
+        private static HubConnection _connection;
+        private static Player _player;
+
+        private static string _nick_name;
+
+        private static EventHandler _closing_handler;
+
+        [DllImport("Kernel32")]
+        private static extern bool SetConsoleCtrlHandler(EventHandler handler, bool add);
+        private delegate bool EventHandler(CtrlType sig);
 
         static void Main(string[] args)
         {
+            _closing_handler += new EventHandler(ClosingHandler);
+            SetConsoleCtrlHandler(_closing_handler, true);
+
             Console.Write("Enter URL: ");
             string url = Console.ReadLine().Trim();
-            var connection = new HubConnection(url);
-            _hub = connection.CreateHubProxy("ServerHub");
-            connection.Start().Wait();
 
-            _hub.On("Response", x => UpdatePlayer(x)); //receives the player state
-            _hub.On("Turn", x => DoAction(x)); //receives the new turn
-            _hub.On("Poll", x => Alive()); //notifies server that you are still conected
+            Console.Write("Enter player name: ");
+            _nick_name = Console.ReadLine().Trim();
 
-            string line = null;
-            while ((line = System.Console.ReadLine()) != null)
-            {
-                _hub.Invoke("Spawn", line).Wait();
-            }
+            _connection = new HubConnection(url);
+            _hub = _connection.CreateHubProxy("ServerHub");
+
+            _hub.On("Init", guid => Init(guid));
+            _hub.On("Update", player => Update(player));
+            _hub.On("MakeMove", () => MakeMove());
+
+            _connection.Start().Wait();
+
+            Console.ReadLine();
         }
 
-        public static void Alive()
+        private static void Init(string guid)
         {
-            _hub.Invoke("Alive", playerID);
+            _hub.Invoke("SpawnPlayer", new object[] { guid, _nick_name });
+            Console.WriteLine(DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + " => Init...");
+        }
+        private static void Update(string player)
+        {
+            _player = Json.DeserializeWithTypeHandling<Player>(player);
+            Console.WriteLine(DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + " => UpdatePlayer... " + _player.Nickname + " (" + _player.ID + ")");
+        }
+        private static void MakeMove()
+        {
+            Random random = new Random();
+            int direction = random.Next(0, 5);
+
+            _hub.Invoke("MakeMove", Json.SerializeWithTypeHandling(new MoveAction { Player = _player, Direction = (ActionDirection)direction }));
+            Console.WriteLine(DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + " => MakeMove...");
         }
 
-        public static void UpdatePlayer(object data)
+        private static bool ClosingHandler(CtrlType sig)
         {
-            Player player = Newtonsoft.Json.JsonConvert.DeserializeObject<Player>(data.ToString());
-            playerID = player.ID;
-        }
+            _connection.Stop();
 
-        public static void DoAction(object turn)
+            return true;
+        }
+        enum CtrlType
         {
-            if (playerID != Guid.Empty)
-            {                
-                _hub.Invoke("DoAction", "move", "N", playerID);
-                Console.WriteLine("Turn: " + turn);
-            }
+            CTRL_C_EVENT = 0,
+            CTRL_BREAK_EVENT = 1,
+            CTRL_CLOSE_EVENT = 2,
+            CTRL_LOGOFF_EVENT = 5,
+            CTRL_SHUTDOWN_EVENT = 6
         }
     }
 }

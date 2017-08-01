@@ -1,15 +1,14 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Collections.Generic;
 
-namespace GameServer
+namespace GameLibrary
 {
     public class Tile
     {
         public TileType Type { get; set; }
+        public bool Passable { get; set; }
         public string Colour { get; set; }
+        public Coordinate Coordinate { get; set; }
+        public List<Coordinate> Neighbours { get; set; }
     }
 
     public enum TileType

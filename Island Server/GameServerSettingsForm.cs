@@ -5,30 +5,31 @@ namespace GameServer
 {
     public partial class GameServerSettingsForm : Form
     {
-        public GameServerSettingsForm()
+        private GameServerForm GameServerForm { get; set; }
+
+        public GameServerSettingsForm(GameServerForm gameServerForm)
         {
             InitializeComponent();
-        }
-
-        private void btnSave_Click(object sender, EventArgs e)
-        {
-            Game.Map.Height = (int)nudHeight.Value;
-            Game.Map.Width = (int)nudWidth.Value;
-            Game.Map.Seed = (int)nudSeed.Value;
-
-            Hide();
-        }
-
-        private void btnCancel_Click(object sender, EventArgs e)
-        {
-            Hide();
+            GameServerForm = gameServerForm;
         }
 
         private void frmServerSettings_Load(object sender, EventArgs e)
         {
-            nudHeight.Value = Game.Map.Height;
-            nudWidth.Value = Game.Map.Width;
-            nudSeed.Value = Game.Map.Seed;
+            nudHeight.Value = GameServerForm.MapHeight;
+            nudWidth.Value = GameServerForm.MapWidth;
+            nudSeed.Value = GameServerForm.MapSeed;
+        }
+        private void btnSave_Click(object sender, EventArgs e)
+        {
+            GameServerForm.MapHeight = (int)nudHeight.Value;
+            GameServerForm.MapWidth = (int)nudWidth.Value;
+            GameServerForm.MapSeed = (int)nudSeed.Value;
+
+            Hide();
+        }
+        private void btnCancel_Click(object sender, EventArgs e)
+        {
+            Hide();
         }
     }
 }

@@ -1,38 +1,36 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
-using System.IO;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
-namespace GameServer
+namespace GameLibrary
 {
     public class Map
     {
-        public int Width { get; set; }
-        public int Height { get; set; }
-        public int Seed { get; set; }
+        public int Width { get; private set; }
+        public int Height { get; private set; }
+        public int Seed { get; private set; }
 
-        public int Octave { get; set; }
-        public double Persistance { get; set; }
+        public int Octave { get; private set; }
+        public double Persistance { get; private set; }
 
-        public Tile[,] Tiles { get; set; }
-        public int[][] Items { get; set; }
+        public Tile[,] Tiles { get; private set; }
+        public List<Coordinate> SpawnLocations { get; private set; }
+        public int[,] Items { get; set; }
 
-        public Map(int width, int height, int seed)
+        public Map()
+        {
+            Octave = 8;
+            Persistance = 0.6;
+        }
+
+        public void Generate(int width, int height, int seed)
         {
             Width = width;
             Height = height;
             Seed = Seed == 0 ? new Random().Next(1, 10000) : seed;
 
-            Octave = 8;
-            Persistance = 0.6;
-        }
-
-        public void Generate()
-        {
             Tiles = new Tile[Width, Height];
+            SpawnLocations = new List<Coordinate>();
 
             double[,] BaseNoise = GenerateWhiteNoise();
             double[,] PerlinNoise = GeneratePerlinNoise(BaseNoise);
@@ -50,26 +48,53 @@ namespace GameServer
                     if (block >= gradient)
                     {
                         if (block >= 0.75)
-                            Tiles[x, y] = new Tile { Type = TileType.Tree, Colour = "#006400" };
+                            Tiles[x, y] = new Tile { Type = TileType.Tree, Passable = false, Colour = "#006400", Coordinate = new Coordinate { X = x, Y = y } };
                         else if (block >= 0.6 && block <= 0.7)
-                            Tiles[x, y] = new Tile { Type = TileType.Foliage, Colour = "#5E8A00" };
+                            Tiles[x, y] = new Tile { Type = TileType.Foliage, Passable = true, Colour = "#5E8A00", Coordinate = new Coordinate { X = x, Y = y } };
                         else if (block >= 0.35 && block <= 0.45)
-                            Tiles[x, y] = new Tile { Type = TileType.Dirt, Colour = "#705B47" };
+                            Tiles[x, y] = new Tile { Type = TileType.Dirt, Passable = true, Colour = "#705B47", Coordinate = new Coordinate { X = x, Y = y } };
                         else if (block >= 0.16 && block <= 0.35)
-                            Tiles[x, y] = new Tile { Type = TileType.Rock, Colour = "#808080" };
+                            Tiles[x, y] = new Tile { Type = TileType.Rock, Passable = false, Colour = "#808080", Coordinate = new Coordinate { X = x, Y = y } };
                         else
-                            Tiles[x, y] = new Tile { Type = TileType.Grass, Colour = "#556B2F" };
+                            Tiles[x, y] = new Tile { Type = TileType.Grass, Passable = true, Colour = "#556B2F", Coordinate = new Coordinate { X = x, Y = y } };
                     }
                     else if (block >= gradient - 0.15)
-                        Tiles[x, y] = new Tile { Type = TileType.Sand, Colour = "#BDB76B" };
+                        Tiles[x, y] = new Tile { Type = TileType.Sand, Passable = true, Colour = "#BDB76B", Coordinate = new Coordinate { X = x, Y = y } };
                     else if (block >= gradient - 0.22)
-                        Tiles[x, y] = new Tile { Type = TileType.Spawn, Colour = "#2957AD" };
+                        Tiles[x, y] = new Tile { Type = TileType.Spawn, Passable = true, Colour = "#2957AD", Coordinate = new Coordinate { X = x, Y = y } };
                     else if (block >= gradient - 0.30)
-                        Tiles[x, y] = new Tile { Type = TileType.ShallowWater, Colour = "#2957AD" };
+                        Tiles[x, y] = new Tile { Type = TileType.ShallowWater, Passable = true, Colour = "#2957AD", Coordinate = new Coordinate { X = x, Y = y } };
                     else if (block >= gradient - 0.45)
-                        Tiles[x, y] = new Tile { Type = TileType.MediumWater, Colour = "#214485" };
+                        Tiles[x, y] = new Tile { Type = TileType.MediumWater, Passable = false, Colour = "#214485", Coordinate = new Coordinate { X = x, Y = y } };
                     else
-                        Tiles[x, y] = new Tile { Type = TileType.DeepWater, Colour = "#142952" };
+                        Tiles[x, y] = new Tile { Type = TileType.DeepWater, Passable = false, Colour = "#142952", Coordinate = new Coordinate { X = x, Y = y } };
+
+                    // Setting up spawn locations
+                    if (Tiles[x, y].Type == TileType.Spawn)
+                        SpawnLocations.Add(new Coordinate { X = x, Y = y });
+
+                    // Setting up the tiles neighbours
+                    Tiles[x, y].Neighbours = new List<Coordinate>();
+
+                    if (y - 1 >= 0)
+                        Tiles[x, y].Neighbours.Add(new Coordinate { X = x, Y = y - 1 });
+
+                    if (y + 1 < Height)
+                        Tiles[x, y].Neighbours.Add(new Coordinate { X = x, Y = y + 1 });
+
+                    if (x - 1 >= 0)
+                    {
+                        Tiles[x, y].Neighbours.Add(new Coordinate { X = x - 1, Y = y });
+                        if (y - 1 >= 0 && y + 1 < Height)
+                            Tiles[x, y].Neighbours.Add(new Coordinate { X = x - 1, Y = (x % 2 == 0) ? y - 1 : y + 1 });
+                    }
+
+                    if (x + 1 < Width)
+                    {
+                        Tiles[x, y].Neighbours.Add(new Coordinate { X = x + 1, Y = y });
+                        if (y - 1 >= 0 && y + 1 < Height)
+                            Tiles[x, y].Neighbours.Add(new Coordinate { X = x + 1, Y = (x % 2 == 0) ? y - 1 : y + 1 });
+                    }
                 }
             }
         }

@@ -1,7 +1,9 @@
 ﻿using CefSharp;
 using CefSharp.WinForms;
+using GameLibrary;
 using Microsoft.Owin.Hosting;
 using System;
+using System.Threading;
 using System.Windows.Forms;
 
 namespace GameServer
@@ -10,8 +12,17 @@ namespace GameServer
     {
         private Server Server { get; set; }
         private bool Running { get; set; }
+        private IDisposable App { get; set; }
+
+        public int MapWidth { get; set; } = 100;
+        public int MapHeight { get; set; } = 100;
+        public int MapSeed { get; set; } = 0;
+        public bool Stopped { get; set; }
 
         public static ChromiumWebBrowser ChromeBrowser;
+        public static GameServerForm Self;
+        public static System.Timers.Timer TurnTimer;
+        public static bool ServerInitialized;
 
         private delegate void TextDelegate(Control control, string text, bool append);
         private delegate void EnableDelegate(Control control, bool enable);
@@ -30,16 +41,26 @@ namespace GameServer
         private void GameServerForm_Load(object sender, EventArgs e)
         {
             Running = false;
+            Stopped = false;
+            ServerInitialized = false;
 
             UpdateText = new TextDelegate(SetText);
             UpdateEnabled = new EnableDelegate(SetEnabled);
 
             WriteToLog("Starting browser...");
             InitializeChromium();
+
+            Self = this;
         }
         private void GameServerForm_FormClosing(object sender, FormClosingEventArgs e)
         {
+            if (TurnTimer != null)
+                TurnTimer.Stop();
+
             Cef.Shutdown();
+
+            if (App != null)
+                App.Dispose();
 
             if (Server != null && !Server.IsDisposed)
                 Server.Dispose();
@@ -70,7 +91,7 @@ namespace GameServer
                 Invoke(UpdateEnabled, new object[] { btnHostServer, true });
                 Invoke(UpdateEnabled, new object[] { mnuMain, true });
 
-                ChromeBrowser.ShowDevTools();
+                //ChromeBrowser.ShowDevTools();
             }
         }
 
@@ -81,8 +102,8 @@ namespace GameServer
                 Server = new Server();
                 WriteToLog($"Server hosted on => " + Server.Name);
 
-                WebApp.Start<Startup>(Server.Url);
-                Game.Map.Generate();
+                App = WebApp.Start<Startup>(Server.Url);
+                Game.Map.Generate(MapWidth, MapHeight, MapSeed);
 
                 ChromeBrowser.GetMainFrame().ExecuteJavaScriptAsync($"DrawMap({ Newtonsoft.Json.JsonConvert.SerializeObject(Game.Map) });");
             }
@@ -104,7 +125,7 @@ namespace GameServer
         }
         private void SettingsMenuItem_Click(object sender, EventArgs e)
         {
-            GameServerSettingsForm settings = new GameServerSettingsForm();
+            GameServerSettingsForm settings = new GameServerSettingsForm(this);
             settings.ShowDialog();
         }
         private void FullScreen_Click(object sender, EventArgs e)
@@ -121,29 +142,45 @@ namespace GameServer
         {
             if (!Running)
             {
+                ClearLog();
                 StartServer();
                 Running = true;
 
                 Invoke(UpdateText, new object[] { btnHostServer, "Stop Server", false });
                 Invoke(UpdateEnabled, new object[] { tbxWatchURL, false });
                 Invoke(UpdateEnabled, new object[] { btnWatchServer, false });
+                Stopped = false;
             }
             else
             {
+                TurnTimer.Stop();
+
+                if (App != null)
+                    App.Dispose();
+
                 if (Server != null && !Server.IsDisposed)
                     Server.Dispose();
 
                 Running = false;
 
+                WriteToLog($"Server stoped");
+
                 Invoke(UpdateText, new object[] { btnHostServer, "Host Server", false });
                 Invoke(UpdateEnabled, new object[] { tbxWatchURL, true });
                 Invoke(UpdateEnabled, new object[] { btnWatchServer, true });
+
+                ChromeBrowser.GetMainFrame().ExecuteJavaScriptAsync($"ClearMap();");
+                Stopped = true;
             }
         }
 
-        private void WriteToLog(string message)
+        public void WriteToLog(string message)
         {
             Invoke(UpdateText, new object[] { tbxLog, message, true });
+        }
+        public void ClearLog()
+        {
+            Invoke(UpdateText, new object[] { tbxLog, "", false });
         }
     }
 }
